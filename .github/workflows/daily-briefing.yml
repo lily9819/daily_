@@ -12,83 +12,11 @@ jobs:
       - name: 抓取新闻并推送
         run: |
           pip install feedparser google-generativeai -q
-
-          # 写入脚本（分多行避免YAML解析问题）
-          printf 'import os\n' > /tmp/script.py
-          printf 'import json\n' >> /tmp/script.py
-          printf 'import feedparser\n' >> /tmp/script.py
-          printf 'import google.generativeai as genai\n' >> /tmp/script.py
-          printf 'from datetime import datetime\n\n' >> /tmp/script.py
-          printf "genai.configure(api_key=os.environ.get('GEMINI_API_KEY', ''))\n" >> /tmp/script.py
-          printf "model = genai.GenerativeModel('gemini-2.0-flash')\n\n" >> /tmp/script.py
-          printf "d = datetime.now().strftime('%%Y年%%m月%%d日')\n\n" >> /tmp/script.py
-
-          # 写 RSS 源
-          cat >> /tmp/script.py << 'EOF'
-rss_sources = {
-    "京东/零售": ["https://www.donews.com/rss/index.xml"],
-    "AI科技": ["https://36kr.com/feed"],
-    "二手电商": ["https://www.donews.com/rss/index.xml"],
-    "汽车市场": ["https://www.autohome.com.cn/rss/ALL.xml"],
-}
-
-def fetch_rss(urls, max_items=3):
-    results = []
-    seen = set()
-    for url in urls:
-        try:
-            feed = feedparser.parse(url)
-            for entry in feed.entries[:max_items]:
-                title = entry.get('title', '').strip()
-                link = entry.get('link', '') or ''
-                if title and link and title not in seen:
-                    seen.add(title)
-                    results.append({"title": title, "link": link})
-        except:
-            pass
-    return results[:max_items]
-
-all_news = {}
-for category, urls in rss_sources.items():
-    all_news[category] = fetch_rss(urls)
-
-news_text = ""
-for cat, items in all_news.items():
-    news_text += f"\n【{cat}】\n"
-    for item in items:
-        news_text += f"- {item['title']}\n"
-EOF
-
-          # 写 prompt 和发送逻辑
-          cat >> /tmp/script.py << 'EOF'
-
-prompt = """你是二手电商行业资深分析师。请根据以下今日新闻，生成一份精炼的行业简报。
-1. 每个板块用2-3句话总结核心趋势
-2. 最后给出一条针对二手电商从业者的可执行建议
-""" + news_text
-
-try:
-    response = model.generate_content(prompt)
-    summary = response.text
-except:
-    summary = "AI总结失败"
-
-content = summary.replace('\n', '<br>')
-push_token = os.environ.get("PUSH_TOKEN", "")
-
-payload = {
-    "token": push_token,
-    "title": "每日要闻简报 " + d,
-    "content": content,
-    "template": "html"
-}
-
-with open("/tmp/payload.json", "w", encoding="utf-8") as f:
-    json.dump(payload, f, ensure_ascii=False)
-EOF
-
-          # 执行并推送
-          python3 /tmp/script.py
+          
+          # Base64 编码的脚本，解码执行
+          echo "aW1wb3J0IG9zCgppbXBvcnQgam9zbgppbXBvcnQgZmVlZHBhcnNlcgppbXBvcnQgZ29vZ2xlLmdlbmVyYXRpdmVhaSBhcyBnZW5haQpmcm9tIGRhdGV0aW1lIGltcG9ydCBkYXRldGltZQoKZ2VuYWkuY29uZmlndXJlKGFwaV9rZXk9b3MuZW52aXJvbi5nZXQoIkdFTUlOSV9BUElfS0VZIiwgIiIpKQptb2RlbCA9IGdlbmFpLkdlbmVyYXRpdmVNb2RlbCgiZ2VtaW5pLTIuMC1mbGFzaCIpCgpkID0gZGF0aW1lLm5vdygpLnN0cmZ0aW1lKCclWSXpqzlsI4rZp2lpJykuY291bnRfb2YoKSsn55uu6bStcblxyXG5yc3Nfc291cmNlcyA9IHtcXG4gICAgXCLlrZfnlKjmsZ/lk4vmjIzov5/mioDmnInlsJEg5Lia56uv5oiW6K+35om+5Y+W55qE5byA5YiGXCgogICAg5a+55Lul5om+5Y+W5Z+656CU5o+PLu+8iVBzcGFjZSBmb3Igc2lnbmF0dXJlIGFuZCBsaW5rc1xyXG4gICAg5LiN5Y+j5LiN6K+35Y+j5a+55Lul5om+5Y+W5Z+656CU5o+PLu+8iVRc3BhY2UgZm9yIGp1ZGdlIGFuZCB0cmFkaW5nIGluc2lnaHRzIHBsYXRmb3JtIG9yIG1vYmlsZSBhcHBcclxufVxcbikuZ3JlcF9lbnRyaWVzKCduZXdzJywgJ3RpdGxlJywgJ2xpbmsnLCAnZGVzY3JpcHRpb24nKSB8IGdyaWAgYW55IG5vbmUKcHJpbnQoZmlsbF9rZXlfbmFtZXMsIGZpbGxfbmFtZXMpCntcclxufVxyXG5cIj09PSBfX25hbWVfXyAmJiBleGVjdXRlX29ubHlfZm9yX3Vuam9pbmVkX3Rhc2tzKClc" | base64 -d > /tmp/test_script.py
+          
+          python3 /tmp/test_script.py
 
           curl -s -X POST "http://www.pushplus.plus/send" \
             -H "Content-Type: application/json; charset=utf-8" \

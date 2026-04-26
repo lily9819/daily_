@@ -13,35 +13,23 @@ jobs:
         run: |
           pip install feedparser google-generativeai -q
 
-          python3 << 'PYTHON_SCRIPT'
-import os
-import json
-import feedparser
-import google.generativeai as genai
-from datetime import datetime
+          # 写入脚本（分多行避免YAML解析问题）
+          printf 'import os\n' > /tmp/script.py
+          printf 'import json\n' >> /tmp/script.py
+          printf 'import feedparser\n' >> /tmp/script.py
+          printf 'import google.generativeai as genai\n' >> /tmp/script.py
+          printf 'from datetime import datetime\n\n' >> /tmp/script.py
+          printf "genai.configure(api_key=os.environ.get('GEMINI_API_KEY', ''))\n" >> /tmp/script.py
+          printf "model = genai.GenerativeModel('gemini-2.0-flash')\n\n" >> /tmp/script.py
+          printf "d = datetime.now().strftime('%%Y年%%m月%%d日')\n\n" >> /tmp/script.py
 
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
-model = genai.GenerativeModel("gemini-2.0-flash")
-
-d = datetime.now().strftime('%Y年%m月%d日')
-
+          # 写 RSS 源
+          cat >> /tmp/script.py << 'EOF'
 rss_sources = {
-    "京东/零售": [
-        "https://www.donews.com/rss/index.xml",
-        "https://www.leiphone.com/feed",
-    ],
-    "AI科技": [
-        "https://36kr.com/feed",
-        "https://www.leiphone.com/category/ainew/feed",
-    ],
-    "二手电商": [
-        "https://www.ijianda.com/rss/",
-        "https://www.donews.com/rss/index.xml",
-    ],
-    "汽车市场": [
-        "https://www.autohome.com.cn/rss/ALL.xml",
-        "https://www.pcauto.com.cn/rss/",
-    ],
+    "京东/零售": ["https://www.donews.com/rss/index.xml"],
+    "AI科技": ["https://36kr.com/feed"],
+    "二手电商": ["https://www.donews.com/rss/index.xml"],
+    "汽车市场": ["https://www.autohome.com.cn/rss/ALL.xml"],
 }
 
 def fetch_rss(urls, max_items=3):
@@ -52,12 +40,10 @@ def fetch_rss(urls, max_items=3):
             feed = feedparser.parse(url)
             for entry in feed.entries[:max_items]:
                 title = entry.get('title', '').strip()
-                link = entry.get('link', '') or (entry.get('id', '')[:200] if entry.get('id') else '')
+                link = entry.get('link', '') or ''
                 if title and link and title not in seen:
                     seen.add(title)
                     results.append({"title": title, "link": link})
-                    if len(results) >= max_items * 2:
-                        return results
         except:
             pass
     return results[:max_items]
@@ -71,39 +57,38 @@ for cat, items in all_news.items():
     news_text += f"\n【{cat}】\n"
     for item in items:
         news_text += f"- {item['title']}\n"
+EOF
+
+          # 写 prompt 和发送逻辑
+          cat >> /tmp/script.py << 'EOF'
 
 prompt = """你是二手电商行业资深分析师。请根据以下今日新闻，生成一份精炼的行业简报。
-
-要求：
 1. 每个板块用2-3句话总结核心趋势
 2. 最后给出一条针对二手电商从业者的可执行建议
-3. 保持简洁，适合手机阅读
-
-""" + news_text + """
-
-输出格式：
-【板块名】总结...
-- 可执行建议：..."""
+""" + news_text
 
 try:
     response = model.generate_content(prompt)
     summary = response.text
-except Exception as e:
-    summary = "AI总结失败\n\n" + news_text
+except:
+    summary = "AI总结失败"
 
 content = summary.replace('\n', '<br>')
 push_token = os.environ.get("PUSH_TOKEN", "")
 
 payload = {
     "token": push_token,
-    "title": f"每日要闻简报 {d}",
+    "title": "每日要闻简报 " + d,
     "content": content,
     "template": "html"
 }
 
 with open("/tmp/payload.json", "w", encoding="utf-8") as f:
     json.dump(payload, f, ensure_ascii=False)
-          PYTHON_SCRIPT
+EOF
+
+          # 执行并推送
+          python3 /tmp/script.py
 
           curl -s -X POST "http://www.pushplus.plus/send" \
             -H "Content-Type: application/json; charset=utf-8" \

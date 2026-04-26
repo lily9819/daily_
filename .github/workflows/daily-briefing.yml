@@ -11,98 +11,99 @@ jobs:
     steps:
       - name: 抓取新闻并推送
         run: |
-          pip install feedparser httpx google-generativeai -q
+          pip install feedparser google-generativeai -q
 
-          cat > /tmp/send_briefing.py << 'ENDSCRIPT'
-          import os
-          import json
-          import feedparser
-          import google.generativeai as genai
-          from datetime import datetime
+          python3 << 'PYTHON_SCRIPT'
+import os
+import json
+import feedparser
+import google.generativeai as genai
+from datetime import datetime
 
-          genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
-          model = genai.GenerativeModel("gemini-2.0-flash")
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
+model = genai.GenerativeModel("gemini-2.0-flash")
 
-          d = datetime.now().strftime('%Y年%m月%d日')
+d = datetime.now().strftime('%Y年%m月%d日')
 
-          rss_sources = {
-              "京东/零售": [
-                  "https://www.donews.com/rss/index.xml",
-                  "https://www.leiphone.com/feed",
-              ],
-              "AI科技": [
-                  "https://36kr.com/feed",
-                  "https://www.leiphone.com/category/ainew/feed",
-              ],
-              "二手电商": [
-                  "https://www.ijianda.com/rss/",
-                  "https://www.donews.com/rss/index.xml",
-              ],
-              "汽车市场": [
-                  "https://www.autohome.com.cn/rss/ALL.xml",
-                  "https://www.pcauto.com.cn/rss/",
-              ],
-          }
+rss_sources = {
+    "京东/零售": [
+        "https://www.donews.com/rss/index.xml",
+        "https://www.leiphone.com/feed",
+    ],
+    "AI科技": [
+        "https://36kr.com/feed",
+        "https://www.leiphone.com/category/ainew/feed",
+    ],
+    "二手电商": [
+        "https://www.ijianda.com/rss/",
+        "https://www.donews.com/rss/index.xml",
+    ],
+    "汽车市场": [
+        "https://www.autohome.com.cn/rss/ALL.xml",
+        "https://www.pcauto.com.cn/rss/",
+    ],
+}
 
-          def fetch_rss(urls, max_items=3):
-              results = []
-              seen = set()
-              for url in urls:
-                  try:
-                      feed = feedparser.parse(url)
-                      for entry in feed.entries[:max_items]:
-                          title = entry.get('title', '').strip()
-                          link = entry.get('link', '') or entry.get('id', '')[:200] if entry.get('id') else ''
-                          if title and link and title not in seen:
-                              seen.add(title)
-                              results.append({"title": title, "link": link})
-                              if len(results) >= max_items * 2:
-                                  return results
-                  except:
-                      pass
-              return results[:max_items]
+def fetch_rss(urls, max_items=3):
+    results = []
+    seen = set()
+    for url in urls:
+        try:
+            feed = feedparser.parse(url)
+            for entry in feed.entries[:max_items]:
+                title = entry.get('title', '').strip()
+                link = entry.get('link', '') or (entry.get('id', '')[:200] if entry.get('id') else '')
+                if title and link and title not in seen:
+                    seen.add(title)
+                    results.append({"title": title, "link": link})
+                    if len(results) >= max_items * 2:
+                        return results
+        except:
+            pass
+    return results[:max_items]
 
-          all_news = {}
-          for category, urls in rss_sources.items():
-              all_news[category] = fetch_rss(urls)
+all_news = {}
+for category, urls in rss_sources.items():
+    all_news[category] = fetch_rss(urls)
 
-          news_text = ""
-          for cat, items in all_news.items():
-              news_text += f"\n【{cat}】\n"
-              for item in items:
-                  news_text += f"- {item['title']}\n"
+news_text = ""
+for cat, items in all_news.items():
+    news_text += f"\n【{cat}】\n"
+    for item in items:
+        news_text += f"- {item['title']}\n"
 
-          prompt = f"""你是二手电商行业资深分析师。请根据以下今日新闻，生成一份精炼的行业简报。
+prompt = """你是二手电商行业资深分析师。请根据以下今日新闻，生成一份精炼的行业简报。
 
 要求：
 1. 每个板块用2-3句话总结核心趋势
-2. 最后给出一条针对二手电商从业者的**可执行建议**
+2. 最后给出一条针对二手电商从业者的可执行建议
 3. 保持简洁，适合手机阅读
 
-{news_text}
+""" + news_text + """
 
 输出格式：
 【板块名】总结...
 - 可执行建议：..."""
 
-          try:
-              response = model.generate_content(prompt)
-              summary = response.text
-          except Exception as e:
-              summary = "⚠️ AI总结失败\n\n" + news_text
+try:
+    response = model.generate_content(prompt)
+    summary = response.text
+except Exception as e:
+    summary = "AI总结失败\n\n" + news_text
 
-          payload = {
-              "token": os.environ.get("PUSH_TOKEN", ""),
-              "title": f"📰 每日要闻简报 {d}",
-              "content": summary.replace('\n', '<br>'),
-              "template": "html"
-          }
+content = summary.replace('\n', '<br>')
+push_token = os.environ.get("PUSH_TOKEN", "")
 
-          with open("/tmp/payload.json", "w", encoding="utf-8") as f:
-              json.dump(payload, f, ensure_ascii=False)
-          ENDSCRIPT
+payload = {
+    "token": push_token,
+    "title": f"每日要闻简报 {d}",
+    "content": content,
+    "template": "html"
+}
 
-          python3 /tmp/send_briefing.py
+with open("/tmp/payload.json", "w", encoding="utf-8") as f:
+    json.dump(payload, f, ensure_ascii=False)
+          PYTHON_SCRIPT
 
           curl -s -X POST "http://www.pushplus.plus/send" \
             -H "Content-Type: application/json; charset=utf-8" \

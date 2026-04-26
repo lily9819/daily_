@@ -1,25 +1,94 @@
 name: 每日要闻简报
 
 on:
-  schedule:
-    - cron: '30 0 * * *'
-  workflow_dispatch:
+ schedule:
+ - cron: '30 0 * * *'
+ workflow_dispatch:
 
 jobs:
-  push:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 抓取新闻并推送
-        run: |
-          pip install feedparser google-generativeai -q
-          
-          echo "aW1wb3J0IG9zCmltcG9ydCBqc29uCmltcG9ydCBmZWVkcGFyc2VyCmltcG9ydCBnb29nbGUuZ2VuZXJhdGl2ZWFpIGFzIGdlbmFpCmZyb20gZGF0aW1lIGltcG9ydCBkYXRldGltZQoKZ2VuYWkuY29uZmlndXJlKGFwaV9rZXk9b3MuZW52aXJvbi5nZXQoIkdFTUlOSV9BUElfS0VZIiwgIiIpKQptb2RlbCA9IGdlbmFpLkdlbmVyYXRpdmVNb2RlbCgiZ2VtaW5pLTIuMC1mbGFzaCIpCgpkID0gZGF0aW1lLm5vdygpLnN0cmZ0aW1lKCdZJeWqjOWwjitmKeatoScpCgpSc3Nfc291cmNlcyA9IHsKICAgICLkuqzkuJwonpm7tuWUriI6IFsiaHR0cHM6Ly93d3cuZG9uZXdzLmNvbS9yc3MvaW5kZXgueG1sIl0sCiAgICAiQUlnp5HmiowijogWyJodHRwczovLzM2a3IuY29tL2ZlZWQiXSwKICAgICLmsoy5omL55S15ZWGIjogWyJodHRwczovL3d3dy5kb25ld3MuY29tL3Jzcy9pbmRleC54bWwiXSwKICAgICLmsb36L2m5biC5ZyyIjogWyJodHRwczovL3d3dy5hdXRvaG9tZS5jb20uY24vcnNzL0FMTF94bWwiXSwKfQoKZGVmIGZldGNoX3Jzcyh1cmxzLCBtYXhfaXRlbXM9Myk6CiAgICByZXN1bHRzID0gW10KICAgIHNlZW4gPSBzZXQoKQogICAgZm9yIHVybCBpbiB1cmxzOgogICAgICAgIHRyeToKICAgICAgICAgICAgZmVlZCA9IGZlZWRwYXJzZXIucGFyc2UodXJsKQogICAgICAgICAgICBmb3IgZW50cnkgaW4gZmVlZC5lbnRyaWVzWzptYXhfaXRlbXNdOgogICAgICAgICAgICAgICAgdGl0bGUgPSBlbnRyeS5nZXQoInRpdGxlIiwgIiIpLnN0cmlwKCkKICAgICAgICAgICAgICAgIGxpbmsgPSBlbnRyeS5nZXQoImxpbmsiLCAiIikgb3IgIiIKICAgICAgICAgICAgICAgIGlmIHRpdGxlIGFuZCBsaW5rIGFuZCB0aXRsZSBub3QgaW4gc2VlbjoKICAgICAgICAgICAgICAgICAgICBzZWVuLmFkZCh0aXRsZSkKICAgICAgICAgICAgICAgICAgICByZXN1bHRzLmFwcGVuZCh7InRpdGxlIjogdGl0bGUsICJsaW5rIjogbGlua30pCiAgICAgICAgZXhjZXB0OgogICAgICAgICAgICBwYXNzCiAgICByZXR1cm4gcmVzdWx0c1s6bWF4X2l0ZW1zXQoKYWxsX25ld3MgPSB7fQoKZm9yIGNhdGVnb3J5LCB1cmxzIGluIHJzc19zb3VyY2VzLml0ZW1zKCk6CiAgICBhbGxfbmV3c1tjYXRlZ29yeV0gPSBmZXRjaF9yc3ModXJscykKCm5ld3NfdGV4dCA9ICIiCmZvciBjYXQsIGl0ZW1zIGluIGFsbF9uZXdzLml0ZW1zKCk6CiAgICBuZXdzX3RleHQgKz0gZiJcbuOAkHtjYXR944CRXG4iCiAgICBmb3IgaXRlbSBpbiBpdGVtczoKICAgICAgICBuZXdzX3RleHQgKz0gZiItIHtpdGVtWyd0aXRsZSddfVxuIgoKcHJvbXB0ID0gIuS9oOaYr+S6jOaJi+eUteWVhuihjOS4mui1hOa3seWIhuaekOW4iOOAguivt+agueaNruS7peS4i+S7iuaXpeaWsOmXu++8jOeUn+aIkOS4gOS7veeyvueCvOeahOihjOS4mueugOaKpeOAguavj+S4quadv+Wdl+eUqDItM+WPpeivneaAu+e7k+aguOW/g+i2i+WKv+OAguacgOWQjue7meWHuuS4gOadoemSiOWvueS6jOaJi+eUteWVhuS7juS4muiAheeahOWPr+aJp+ihjOW7uuiuruOAgiIgKyBuZXdzX3RleHQKCnRyeToKICAgIHJlc3BvbnNlID0gbW9kZWwuZ2VuZXJhdGVfY29udGVudChwcm9tcHQpCiAgICBzdW1tYXJ5ID0gcmVzcG9uc2UudGV4dApleGNlcHQgRXhjZXB0aW9uIGFzIGU6CiAgICBzdW1tYXJ5ID0gZiJBUmaAu+e7k+Wksei0pToge2V9XG5cbiIgKyBuZXdzX3RleHQKCmNvbnRlbnQgPSBzdW1tYXJ5LnJlcGxhY2UoIlxuIiwgIjxicj4iKQpwdXNoX3Rva2VuID0gb3MuZW52aXJvbi5nZXQoIlBVU0hfVE9LRU4iLCAiIikKCnBheWxvYWQgPSB7CiAgICAidG9rZW4iOiBwdXNoX3Rva2VuLAogICAgInRpdGxlIjogIuavj+aXpeimgemXu+eugOaKpSAiICsgZCwKICAgICJjb250ZW50IjogY29udGVudCwKICAgICJ0ZW1wbGF0ZSI6ICJodG1sIgp9Cgp3aXRoIG9wZW4oIi90bXAvcGF5bG9hZC5qc29uIiwgInciLCBlbmNvZGluZz0idXRmLTgiKSBhcyBmOgogICAganNvbi5kdW1wKHBheWxvYWQsIGYsIGVuc3VyZV9hc2NpaT1GYWxzZSkKCnByaW50KCJEb25lIik" | base64 -d > /tmp/script.py
-          
-          python3 /tmp/script.py
+ push:
+ runs-on: ubuntu-latest
+ steps:
+ - name: 抓取新闻并推送
+ run: |
+ pip install feedparser google-generativeai -q
+ 
+ cat > /tmp/script.py << 'PYTHONEOF'
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import os
+import json
+import feedparser
+import google.generativeai as genai
+from datetime import datetime
 
-          curl -s -X POST "http://www.pushplus.plus/send" \
-            -H "Content-Type: application/json; charset=utf-8" \
-            -d @/tmp/payload.json
-        env:
-          PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
+model = genai.GenerativeModel("gemini-2.0-flash")
+
+d = datetime.now().strftime('%Y年%m月%d日')
+
+rss_sources = {
+ "京东/零售": ["https://www.donews.com/rss/index.xml"],
+ "AI科技": ["https://36kr.com/feed"],
+ "二手电商": ["https://www.donews.com/rss/index.xml"],
+ "汽车市场": ["https://www.autohome.com.cn/rss/ALL.xml"],
+}
+
+def fetch_rss(urls, max_items=3):
+ results = []
+ seen = set()
+ for url in urls:
+ try:
+ feed = feedparser.parse(url)
+ for entry in feed.entries[:max_items]:
+ title = entry.get("title", "").strip()
+ link = entry.get("link", "") or ""
+ if title and link and title not in seen:
+ seen.add(title)
+ results.append({"title": title, "link": link})
+ except:
+ pass
+ return results[:max_items]
+
+all_news = {}
+for category, urls in rss_sources.items():
+ all_news[category] = fetch_rss(urls)
+
+news_text = ""
+for cat, items in all_news.items():
+ news_text += f"\n【{cat}】\n"
+ for item in items:
+ news_text += f"- {item['title']}\n"
+
+prompt = "你是二手电商行业资深分析师。请根据以下今日新闻，生成一份精炼的行业简报。每个板块用2-3句话总结核心趋势。最后给出一条针对二手电商从业者的可执行建议。" + news_text
+
+try:
+ response = model.generate_content(prompt)
+ summary = response.text
+except Exception as e:
+ summary = f"AI总结失败: {e}\n\n" + news_text
+
+content = summary.replace("\n", "<br>")
+push_token = os.environ.get("PUSH_TOKEN", "")
+
+payload = {
+ "token": push_token,
+ "title": "每日要闻简报 " + d,
+ "content": content,
+ "template": "html"
+}
+
+with open("/tmp/payload.json", "w", encoding="utf-8") as f:
+ json.dump(payload, f, ensure_ascii=False)
+
+print("Done")
+PYTHONEOF
+ 
+ python3 /tmp/script.py
+
+ curl -s -X POST "http://www.pushplus.plus/send" \
+ -H "Content-Type: application/json; charset=utf-8" \
+ -d @/tmp/payload.json
+ env:
+ PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
+ GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

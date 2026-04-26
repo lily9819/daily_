@@ -11,85 +11,95 @@ jobs:
     steps:
       - name: 抓取新闻并推送
         run: |
-          pip install feedparser httpx -q
+          pip install feedparser httpx google-generativeai -q
 
           cat > /tmp/send_briefing.py << 'ENDSCRIPT'
-          import json, os, sys
+          import os
+          import json
           import feedparser
-          import httpx
+          import google.generativeai as genai
           from datetime import datetime
-          from html import escape
+
+          genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
+          model = genai.GenerativeModel("gemini-2.0-flash")
 
           d = datetime.now().strftime('%Y年%m月%d日')
 
-          def fetch_rss(feeds, max_items=2):
+          rss_sources = {
+              "京东/零售": [
+                  "https://www.donews.com/rss/index.xml",
+                  "https://www.leiphone.com/feed",
+              ],
+              "AI科技": [
+                  "https://36kr.com/feed",
+                  "https://www.leiphone.com/category/ainew/feed",
+              ],
+              "二手电商": [
+                  "https://www.ijianda.com/rss/",
+                  "https://www.donews.com/rss/index.xml",
+              ],
+              "汽车市场": [
+                  "https://www.autohome.com.cn/rss/ALL.xml",
+                  "https://www.pcauto.com.cn/rss/",
+              ],
+          }
+
+          def fetch_rss(urls, max_items=3):
               results = []
-              for url in feeds:
+              seen = set()
+              for url in urls:
                   try:
                       feed = feedparser.parse(url)
                       for entry in feed.entries[:max_items]:
                           title = entry.get('title', '').strip()
-                          link = entry.get('link', '') or (entry.get('id', '')[:200])
-                          if title and link and title not in [r[0] for r in results]:
-                              results.append((title, link))
+                          link = entry.get('link', '') or entry.get('id', '')[:200] if entry.get('id') else ''
+                          if title and link and title not in seen:
+                              seen.add(title)
+                              results.append({"title": title, "link": link})
                               if len(results) >= max_items * 2:
                                   return results
-                  except Exception:
+                  except:
                       pass
               return results[:max_items]
 
-          # ── 各板块 RSS 源 ──────────────────────────────────
-          news_jd = fetch_rss([
-              'https://www.donews.com/rss/index.xml',
-              'https://www.leiphone.com/feed',
-          ])
+          all_news = {}
+          for category, urls in rss_sources.items():
+              all_news[category] = fetch_rss(urls)
 
-          news_ai = fetch_rss([
-              'https://36kr.com/feed',
-              'https://www.leiphone.com/category/ainew/feed',
-          ])
+          news_text = ""
+          for cat, items in all_news.items():
+              news_text += f"\n【{cat}】\n"
+              for item in items:
+                  news_text += f"- {item['title']}\n"
 
-          news_used = fetch_rss([
-              'https://www.ijianda.com/rss/',
-              'https://www.donews.com/rss/index.xml',
-          ])
+          prompt = f"""你是二手电商行业资深分析师。请根据以下今日新闻，生成一份精炼的行业简报。
 
-          news_car = fetch_rss([
-              'https://www.autohome.com.cn/rss/ALL.xml',
-              'https://www.pcauto.com.cn/rss/',
-          ])
+要求：
+1. 每个板块用2-3句话总结核心趋势
+2. 最后给出一条针对二手电商从业者的**可执行建议**
+3. 保持简洁，适合手机阅读
 
-          # ── 组装 HTML ────────────────────────────────────
-          blocks = [
-              f"<b>━━━ 京东/零售 ━━━</b><br>" +
-              ''.join(f'• <a href="{u}">{escape(t, quote=False)}</a><br>' for t, u in news_jd) or "暂无相关资讯<br>",
-              "<br>",
-              f"<b>━━━ AI科技 ━━━</b><br>" +
-              ''.join(f'• <a href="{u}">{escape(t, quote=False)}</a><br>' for t, u in news_ai) or "暂无相关资讯<br>",
-              "<br>",
-              f"<b>━━━ 二手电商 ━━━</b><br>" +
-              ''.join(f'• <a href="{u}">{escape(t, quote=False)}</a><br>' for t, u in news_used) or "暂无相关资讯<br>",
-              "<br>",
-              f"<b>━━━ 汽车市场 ━━━</b><br>" +
-              ''.join(f'• <a href="{u}">{escape(t, quote=False)}</a><br>' for t, u in news_car) or "暂无相关资讯<br>",
-              "<br>",
-              "<i>⚠️ 数据来源：公开RSS · 实时抓取</i>",
-          ]
+{news_text}
 
-          content = ''.join(blocks)
-          push_token = os.environ.get("PUSH_TOKEN", "")
+输出格式：
+【板块名】总结...
+- 可执行建议：..."""
+
+          try:
+              response = model.generate_content(prompt)
+              summary = response.text
+          except Exception as e:
+              summary = "⚠️ AI总结失败\n\n" + news_text
 
           payload = {
-              "token": push_token,
+              "token": os.environ.get("PUSH_TOKEN", ""),
               "title": f"📰 每日要闻简报 {d}",
-              "content": content,
+              "content": summary.replace('\n', '<br>'),
               "template": "html"
           }
 
           with open("/tmp/payload.json", "w", encoding="utf-8") as f:
               json.dump(payload, f, ensure_ascii=False)
-
-          print(f"京东:{len(news_jd)}条 | AI科技:{len(news_ai)}条 | 二手:{len(news_used)}条 | 汽车:{len(news_car)}条")
           ENDSCRIPT
 
           python3 /tmp/send_briefing.py
@@ -99,3 +109,4 @@ jobs:
             -d @/tmp/payload.json
         env:
           PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

@@ -11,36 +11,72 @@ jobs:
     steps:
       - name: 抓取新闻并推送
         run: |
+          pip install feedparser httpx -q
+
           cat > /tmp/send_briefing.py << 'ENDSCRIPT'
-          import json, subprocess, os
+          import json, os, sys
+          import feedparser
+          import httpx
           from datetime import datetime
+          from html import escape
 
           d = datetime.now().strftime('%Y年%m月%d日')
 
-          jd_news = "📦 京东：暂无"
-          ai_news = "🤖 AI科技：暂无"
-          used_news = "🔁 二手电商：暂无"
-          car_news = "🚗 汽车市场：暂无"
+          def fetch_rss(feeds, max_items=2):
+              results = []
+              for url in feeds:
+                  try:
+                      feed = feedparser.parse(url)
+                      for entry in feed.entries[:max_items]:
+                          title = entry.get('title', '').strip()
+                          link = entry.get('link', '') or (entry.get('id', '')[:200])
+                          if title and link and title not in [r[0] for r in results]:
+                              results.append((title, link))
+                              if len(results) >= max_items * 2:
+                                  return results
+                  except Exception:
+                      pass
+              return results[:max_items]
 
-          content_lines = [
-              f"【每日要闻简报】{d}",
-              "",
-              "━━━ 京东 ━━━",
-              jd_news,
-              "",
-              "━━━ AI科技 ━━━",
-              ai_news,
-              "",
-              "━━━ 二手电商 ━━━",
-              used_news,
-              "",
-              "━━━ 汽车市场 ━━━",
-              car_news,
-              "",
-              "⚠️ 基础版本，后续接入AI生成",
+          # ── 各板块 RSS 源 ──────────────────────────────────
+          news_jd = fetch_rss([
+              'https://www.donews.com/rss/index.xml',
+              'https://www.leiphone.com/feed',
+          ])
+
+          news_ai = fetch_rss([
+              'https://36kr.com/feed',
+              'https://www.leiphone.com/category/ainew/feed',
+          ])
+
+          news_used = fetch_rss([
+              'https://www.ijianda.com/rss/',
+              'https://www.donews.com/rss/index.xml',
+          ])
+
+          news_car = fetch_rss([
+              'https://www.autohome.com.cn/rss/ALL.xml',
+              'https://www.pcauto.com.cn/rss/',
+          ])
+
+          # ── 组装 HTML ────────────────────────────────────
+          blocks = [
+              f"<b>━━━ 京东/零售 ━━━</b><br>" +
+              ''.join(f'• <a href="{u}">{escape(t, quote=False)}</a><br>' for t, u in news_jd) or "暂无相关资讯<br>",
+              "<br>",
+              f"<b>━━━ AI科技 ━━━</b><br>" +
+              ''.join(f'• <a href="{u}">{escape(t, quote=False)}</a><br>' for t, u in news_ai) or "暂无相关资讯<br>",
+              "<br>",
+              f"<b>━━━ 二手电商 ━━━</b><br>" +
+              ''.join(f'• <a href="{u}">{escape(t, quote=False)}</a><br>' for t, u in news_used) or "暂无相关资讯<br>",
+              "<br>",
+              f"<b>━━━ 汽车市场 ━━━</b><br>" +
+              ''.join(f'• <a href="{u}">{escape(t, quote=False)}</a><br>' for t, u in news_car) or "暂无相关资讯<br>",
+              "<br>",
+              "<i>⚠️ 数据来源：公开RSS · 实时抓取</i>",
           ]
 
-          content = "\n".join(content_lines)
+          content = ''.join(blocks)
           push_token = os.environ.get("PUSH_TOKEN", "")
 
           payload = {
@@ -52,11 +88,13 @@ jobs:
 
           with open("/tmp/payload.json", "w", encoding="utf-8") as f:
               json.dump(payload, f, ensure_ascii=False)
+
+          print(f"京东:{len(news_jd)}条 | AI科技:{len(news_ai)}条 | 二手:{len(news_used)}条 | 汽车:{len(news_car)}条")
           ENDSCRIPT
 
           python3 /tmp/send_briefing.py
 
-          curl -X POST "http://www.pushplus.plus/send" \
+          curl -s -X POST "http://www.pushplus.plus/send" \
             -H "Content-Type: application/json; charset=utf-8" \
             -d @/tmp/payload.json
         env:

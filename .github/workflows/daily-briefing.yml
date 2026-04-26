@@ -1,0 +1,35 @@
+name: 每日要闻简报
+
+on:
+ schedule:
+ # 每天8:30北京时间 = 0:30 UTC
+ - cron: '30 0 * * *'
+ workflow_dispatch:
+
+jobs:
+ push:
+ runs-on: ubuntu-latest
+ steps:
+ - name: 抓取新闻并推送
+ env:
+ PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
+ run: |
+ # 获取日期
+ DATE=$(date '+%Y年%m月%d日 %A')
+ 
+ # 读取热搜榜（用公开API模拟）
+ JD_NEWS="📦 京东：暂无"
+ AI_NEWS="🤖 AI：暂无"
+ USED_NEWS="🔁 二手：暂无"
+ CAR_NEWS="🚗 汽车：暂无"
+ 
+ # 组装内容
+ CONTENT="【每日要闻简报】$DATE%n%n━━━ 京东 ━━━%n$JD_NEWS%n%n━━━ AI ━━━%n$AI_NEWS%n%n━━━ 二手 ━━━%n$USED_NEWS%n%n━━━ 汽车 ━━━%n$CAR_NEWS"
+ 
+ # URL编码
+ CONTENT_ENCODED=$(echo "$CONTENT" | python3 -c "import sys,json;print(json.dumps(sys.stdin.read()))")
+ 
+ # 发送到PushPlus
+ curl -X POST "http://www.pushplus.plus/send" \
+ -H "Content-Type: application/json; charset=utf-8" \
+ -d "{\"token\":\"$PUSH_TOKEN\",\"title\":\"📰 每日要闻简报 $DATE\",\"content\":$CONTENT_ENCODED,\"template\":\"html\"}"

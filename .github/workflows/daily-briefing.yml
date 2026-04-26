@@ -10,43 +10,54 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 抓取新闻并推送
-        env:
-          PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
         run: |
-          DATE=$(date '+%Y年%m月%d日')
+          cat > /tmp/send_briefing.py << 'ENDSCRIPT'
+          import json, subprocess, os
+          from datetime import datetime
 
-          JD_NEWS="📦 京东：暂无"
-          AI_NEWS="🤖 AI科技：暂无"
-          USED_NEWS="🔁 二手电商：暂无"
-          CAR_NEWS="🚗 汽车市场：暂无"
+          d = datetime.now().strftime('%Y年%m月%d日')
 
-          python3 -c "
-          import json, datetime
-          d = datetime.datetime.now().strftime('%Y年%m月%d日')
+          jd_news = "📦 京东：暂无"
+          ai_news = "🤖 AI科技：暂无"
+          used_news = "🔁 二手电商：暂无"
+          car_news = "🚗 汽车市场：暂无"
+
+          content_lines = [
+              f"【每日要闻简报】{d}",
+              "",
+              "━━━ 京东 ━━━",
+              jd_news,
+              "",
+              "━━━ AI科技 ━━━",
+              ai_news,
+              "",
+              "━━━ 二手电商 ━━━",
+              used_news,
+              "",
+              "━━━ 汽车市场 ━━━",
+              car_news,
+              "",
+              "⚠️ 基础版本，后续接入AI生成",
+          ]
+
+          content = "\n".join(content_lines)
+          push_token = os.environ.get("PUSH_TOKEN", "")
+
           payload = {
-              'token': '$PUSH_TOKEN',
-              'title': f'📰 每日要闻简报 {d}',
-              'content': f'''【每日要闻简报】{d}
-
-━━━ 京东 ━━━
-📦 京东：暂无
-
-━━━ AI科技 ━━━
-🤖 AI科技：暂无
-
-━━━ 二手电商 ━━━
-🔁 二手电商：暂无
-
-━━━ 汽车市场 ━━━
-🚗 汽车市场：暂无
-
-⚠️ 基础版本，后续接入AI生成''',
-              'template': 'html'
+              "token": push_token,
+              "title": f"📰 每日要闻简报 {d}",
+              "content": content,
+              "template": "html"
           }
-          with open('/tmp/payload.json', 'w', encoding='utf-8') as f:
+
+          with open("/tmp/payload.json", "w", encoding="utf-8") as f:
               json.dump(payload, f, ensure_ascii=False)
-          "
+          ENDSCRIPT
+
+          python3 /tmp/send_briefing.py
 
           curl -X POST "http://www.pushplus.plus/send" \
             -H "Content-Type: application/json; charset=utf-8" \
             -d @/tmp/payload.json
+        env:
+          PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
